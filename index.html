@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My To-Do List</title>
+    <!-- Tailwind CSS CDN for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
+
+    <div class="max-w-md w-full bg-white p-6 rounded-lg shadow-xl md:p-8">
+        <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-8 tracking-tight">
+            My To-Do List
+        </h1>
+
+        <div class="flex flex-col sm:flex-row gap-3 mb-8">
+            <input
+                type="text"
+                id="taskInput"
+                placeholder="Add a new task..."
+                class="flex-grow p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 text-lg shadow-sm"
+            />
+            <button
+                id="addTaskButton"
+                class="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-lg transition duration-200 ease-in-out shadow-md"
+            >
+                Add Task
+            </button>
+        </div>
+
+        <ul id="taskList" class="space-y-3">
+            <!-- Tasks will be rendered here by JavaScript -->
+        </ul>
+    </div>
+
+    <script>
+        // Global variables for DOM elements (initialized after DOMContentLoaded)
+        let taskInput;
+        let addTaskButton;
+        let taskList;
+
+        // Internal array to hold task objects
+        let tasks = [];
+
+        // Key for localStorage to store tasks
+        const TASKS_STORAGE_KEY = 'todo-tasks';
+
+        /**
+         * Loads tasks from localStorage and populates the `tasks` array.
+         * Then renders all tasks to the DOM.
+         */
+        function loadTasks() {
+            const storedTasks = localStorage.getItem(TASKS_STORAGE_KEY);
+            if (storedTasks) {
+                tasks = JSON.parse(storedTasks);
+            } else {
+                tasks = []; // Initialize if nothing found
+            }
+            renderTasks();
+        }
+
+        /**
+         * Saves the current `tasks` array to localStorage.
+         */
+        function saveTasks() {
+            localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+        }
+
+        /**
+         * Clears the current task list in the DOM and re-renders all tasks
+         * from the `tasks` array. Displays a message if no tasks exist.
+         */
+        function renderTasks() {
+            taskList.innerHTML = ''; // Clear existing tasks
+            if (tasks.length === 0) {
+                const noTasksMessage = document.createElement('p');
+                noTasksMessage.className = 'text-center text-gray-500 italic text-md mt-4';
+                noTasksMessage.textContent = 'No tasks yet. Add one above!';
+                taskList.appendChild(noTasksMessage);
+            } else {
+                tasks.forEach(task => {
+                    const li = createTaskElement(task);
+                    taskList.appendChild(li);
+                });
+            }
+        }
+
+        /**
+         * Creates a single `<li>` DOM element for a given task object.
+         * Includes the task text and a delete button with an SVG icon.
+         * @param {object} task - The task object { id, text }.
+         * @returns {HTMLLIElement} The created list item element.
+         */
+        function createTaskElement(task) {
+            const li = document.createElement('li');
+            li.dataset.id = task.id; // Store task ID for easy deletion
+            li.className = 'flex items-center justify-between bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200';
+
+            const taskText = document.createElement('span');
+            taskText.className = 'text-gray-800 text-lg flex-grow pr-4 break-words';
+            taskText.textContent = task.text;
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'flex-shrink-0 p-2 rounded-full hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition duration-150 ease-in-out';
+            deleteButton.setAttribute('aria-label', `Delete task: ${task.text}`);
+            // Embedded SVG for the trash can icon (data URI equivalent)
+            deleteButton.innerHTML = `
+                <svg class="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clip-rule="evenodd"></path>
+                </svg>
+            `;
+            deleteButton.onclick = () => deleteTask(task.id);
+
+            li.appendChild(taskText);
+            li.appendChild(deleteButton);
+
+            return li;
+        }
+
+        /**
+         * Adds a new task based on the input field's value.
+         * Clears the input and re-renders the list.
+         */
+        function addTask() {
+            const taskText = taskInput.value.trim();
+            if (taskText === '') {
+                // Provide visual feedback for empty input
+                const originalPlaceholder = taskInput.placeholder;
+                taskInput.placeholder = 'Task cannot be empty!';
+                taskInput.classList.add('border-red-500', 'ring-red-500');
+                setTimeout(() => {
+                    taskInput.placeholder = originalPlaceholder;
+                    taskInput.classList.remove('border-red-500', 'ring-red-500');
+                }, 1500);
+                taskInput.focus();
+                return;
+            }
+
+            const newTask = {
+                id: Date.now().toString(), // Unique ID using timestamp
+                text: taskText
+            };
+
+            tasks.push(newTask);
+            saveTasks();
+            renderTasks(); // Re-render to show the new task
+
+            taskInput.value = ''; // Clear input field
+            taskInput.focus(); // Keep focus for quick adding
+        }
+
+        /**
+         * Deletes a task by its ID.
+         * Updates the `tasks` array and re-renders the list.
+         * @param {string} id - The unique ID of the task to delete.
+         */
+        function deleteTask(id) {
+            tasks = tasks.filter(task => task.id !== id);
+            saveTasks();
+            renderTasks();
+        }
+
+        // --- Event Listeners and Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Get DOM element references once the document is fully loaded
+            taskInput = document.getElementById('taskInput');
+            addTaskButton = document.getElementById('addTaskButton');
+            taskList = document.getElementById('taskList');
+
+            // Add event listeners
+            addTaskButton.addEventListener('click', addTask);
+            taskInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    addTask();
+                }
+            });
+
+            // Load tasks when the page initially loads
+            loadTasks();
+        });
+    </script>
+</body>
+</html>
